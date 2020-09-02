@@ -1,32 +1,60 @@
 <!-- Chapter Start -->
 # Get the Data Migration Assistant
-This code downloads the installation package for the Data Migration Assistant and installs it.  
+This code downloads the installation package for the Data Migration Assistant (DMA) and installs it. 
+**NOTE: This code is optional. If you have DMA installed, you can check the version manually and download the installer.** 
 
 ```ps
-$exists = Test-Path -Path "C:\temp\dma.msi";
+$url = 'https://www.microsoft.com/en-us/download/confirmation.aspx?id=53595';
+$page = Invoke-WebRequest -Uri $url -UseBasicParsing;
+$titlestart = $page.Content.IndexOf('title') + 6;
+$titleend = $page.Content.IndexOf('</title>');
+$titlelength = $titleend - $titlestart;
+$title = $page.Content.Substring($titlestart,$titlelength);
+$versionstart = $title.IndexOf(' v') + 2;
+$dmaversion = $title.Substring($versionstart, 3);
+$path = "C:\temp\dma.msi";
 
-if($exists)
+$InstalledSoftware = Get-ChildItem "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall"
+foreach($obj in $InstalledSoftware)
 {
-    Remove-Item -Path "C:\temp\dma.msi";
+    if($obj.GetValue('DisplayName') -eq 'Microsoft Data Migration Assistant')
+    {
+        $currentversion = $obj.GetValue('DisplayVersion').Substring(0,3);
+    }
 }
 
-$url = 'https://www.microsoft.com/en-us/download/confirmation.aspx?id=53595'
-$page = Invoke-WebRequest -Uri $url -UseBasicParsing
-$dmainstall = $page.Links | Where-Object {$_.href -like "*msi*"} | Select-Object -ExpandProperty href -First 1;
+if($currentversion -ne $dmaversion)
+{
+    $exists = Test-Path -Path $path;
 
-Invoke-WebRequest -Uri $dmainstall -OutFile "C:\temp\dma.msi";
-Start-Process msiexec.exe -Wait -ArgumentList '/I C:\temp\dma.msi /quiet';
+    if($exists)
+    {
+        Remove-Item -Path $path;
+    }
+
+    $dmainstall = $page.Links | Where-Object {$_.href -like "*msi*"} | Select-Object -ExpandProperty href -First 1;
+
+    Invoke-WebRequest -Uri $dmainstall -OutFile $path;
+    $arglist = "/I $path /quiet"
+    Start-Process msiexec.exe -Wait -ArgumentList $arglist;
+}
+
 ```
-<!-- Chapter End -->
-
 <!-- Chapter Start -->
-# Get Data Migration Assistant PowerShell Modules
-This code downloads a .zip file from Microsoft containing the PowerShell modules for DMA.  Once downloaded, it is extracted to folder C:\Program Files\WindowsPowerShell\Modules\DataMigrationAssistant
+
+# Get DMA PowerShell Modules
+Download the DMA PowerShell modules from Microsoft, extract the .zip file, and put the modules into the default PowerShell path.
 
 ```ps
-$exists = Test-Path -Path "C:\Program Files\WindowsPowerShell\Modules\DataMigrationAssistant";
+$zipexists = Test-Path -Path "C:\temp\dmapowershell.zip";
+$psexists = Test-Path -Path "C:\ProgramFiles\WindowsPowerShell\Modules\DataMigrationAssistant";
 
-if($exists)
+if($zipexists)
+{
+    Remove-Item -Path "C:\temp\dmapowershell.zip";
+}
+
+if($psexists)
 {
     Remove-Item -Path "C:\Program Files\WindowsPowerShell\Modules\DataMigrationAssistant" -Recurse;
 }
@@ -34,8 +62,24 @@ if($exists)
 Invoke-WebRequest -Uri "https://techcommunity.microsoft.com/gxcuf89792/attachments/gxcuf89792/MicrosoftDataMigration/161/1/PowerShell-Modules2.zip" -OutFile "C:\temp\dmapowershell.zip";
 New-Item -Path "C:\Program Files\WindowsPowerShell\Modules" -Name DataMigrationAssistant -ItemType Directory;
 Expand-Archive -Path "C:\temp\dmapowershell.zip" -DestinationPath "C:\Program Files\WindowsPowerShell\Modules\DataMigrationAssistant";
+
+$module = "DBATools";
+$dbatools = Get-Module -Name DBATools -ListAvailable;
+
+if(!$dbatools)
+{
+    Write-Output "Installing";
+    Install-Module -Name $module;
+}
+else
+{
+    Write-Output "Updating";
+    Update-Module -Name $module;
+}
+
 ```
 
+<!-- Chapter End -->
 <!-- Chapter End -->
 <!-- Chapter Start -->
 # Create DMA Inventory Database

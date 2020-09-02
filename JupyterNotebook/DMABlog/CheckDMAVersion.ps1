@@ -6,6 +6,7 @@ $titlelength = $titleend - $titlestart;
 $title = $page.Content.Substring($titlestart,$titlelength);
 $versionstart = $title.IndexOf(' v') + 2;
 $dmaversion = $title.Substring($versionstart, 3);
+$path = "C:\temp\dma.msi";
 
 $InstalledSoftware = Get-ChildItem "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall"
 foreach($obj in $InstalledSoftware)
@@ -15,24 +16,21 @@ foreach($obj in $InstalledSoftware)
         $currentversion = $obj.GetValue('DisplayVersion').Substring(0,3);
     }
 }
-$currentversion;
-$dmaversion;
 
 if($currentversion -ne $dmaversion)
 {
-    $exists = Test-Path -Path "C:\temp\dma.msi";
+    $exists = Test-Path -Path $path;
 
     if($exists)
     {
-        Remove-Item -Path "C:\temp\dma.msi";
+        Remove-Item -Path $path;
     }
 
-#    $url = 'https://www.microsoft.com/en-us/download/confirmation.aspx?id=53595'
-#    $page = Invoke-WebRequest -Uri $url -UseBasicParsing
     $dmainstall = $page.Links | Where-Object {$_.href -like "*msi*"} | Select-Object -ExpandProperty href -First 1;
 
-    Invoke-WebRequest -Uri $dmainstall -OutFile "C:\temp\dma.msi";
-    Start-Process msiexec.exe -Wait -ArgumentList '/I C:\temp\dma.msi /quiet';
+    Invoke-WebRequest -Uri $dmainstall -OutFile $path;
+    $arglist = "/I $path /quiet"
+    Start-Process msiexec.exe -Wait -ArgumentList $arglist;
 }
 else
 {
